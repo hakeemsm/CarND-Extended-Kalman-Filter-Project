@@ -1,4 +1,7 @@
+#include <iostream>
+#include <math.h>
 #include "kalman_filter.h"
+
 
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
@@ -25,6 +28,9 @@ void KalmanFilter::Predict() {
   TODO:
     * predict the state
   */
+  x_ = F_ * x_;
+	MatrixXd Ft = F_.transpose();
+	P_ = F_ * P_ * Ft + Q_;
 }
 
 void KalmanFilter::Update(const VectorXd &z) {
@@ -32,6 +38,47 @@ void KalmanFilter::Update(const VectorXd &z) {
   TODO:
     * update the state by using Kalman Filter equations
   */
+  std::cout << "Kalman filter update" << std::endl;
+  VectorXd z_pred = H_ * x_;
+	VectorXd y = z - z_pred;
+	MatrixXd Ht = H_.transpose();
+  MatrixXd P_Ht = P_ * Ht;
+	MatrixXd S = (H_ * P_Ht) + R_;
+	MatrixXd Si = S.inverse();
+	
+	MatrixXd K = P_Ht * Si;
+
+	//new estimate
+	x_ = x_ + (K * y);
+	long x_size = x_.size();
+	MatrixXd I = MatrixXd::Identity(x_size, x_size);
+	P_ = (I - K * H_) * P_;
+}
+
+VectorXd KalmanFilter::ConvertCartesianToPolar(const VectorXd &z){
+  
+  float px = x_[0];
+  float py = x_[1];
+  float vx = x_[2];
+  float vy = x_[3];
+  
+  VectorXd hx = VectorXd(3);
+  hx[0] = sqrt(px*px + py*py);
+  hx[1] = atan2(py,px);
+  hx[2] = (px*vx + py*vy)/std::max(0.00001, hx[0]);
+  
+  VectorXd y = z - hx;
+  double pi_ = M_PI;
+  while(y[1] > pi_ || y[1] < -pi_){
+    if(y[1] > pi_){
+      y[1] -= pi_;
+    }
+    else{
+      y[1] += pi_;
+    }
+
+  }
+  return y; 
 }
 
 void KalmanFilter::UpdateEKF(const VectorXd &z) {
@@ -39,4 +86,22 @@ void KalmanFilter::UpdateEKF(const VectorXd &z) {
   TODO:
     * update the state by using Extended Kalman Filter equations
   */
+  std::cout << "Extended Kalman filter update" << std::endl;
+  VectorXd y = ConvertCartesianToPolar(z);
+  
+	MatrixXd Ht = H_.transpose();
+  MatrixXd P_Ht = P_ * Ht;
+	MatrixXd S = (H_ * P_Ht) + R_;
+	MatrixXd Si = S.inverse();
+	
+	MatrixXd K = P_Ht * Si;
+
+	//new estimate
+  
+	x_ = x_ + (K * y);
+  
+	long x_size = x_.size();
+	MatrixXd I = MatrixXd::Identity(x_size, x_size);
+	P_ = (I - K * H_) * P_;
+  
 }
